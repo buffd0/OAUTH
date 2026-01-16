@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 
-const prisma = new PrismaClient() // 이 줄이 없어서 에러가 발생했습니다
+const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const id = Number(event.context.params?.id)
@@ -18,34 +18,37 @@ export default defineEventHandler(async (event) => {
   // 2. 권한 확인 로직
   let isAuthorized = false
 
-  // A. 소셜 로그인 유저 본인 확인
-  if (socialName && post.guestName === decodeURIComponent(socialName)) {
-    isAuthorized = true
+  // A. 회원(로그인 유저)이 쓴 글인 경우
+  if (post.authorId) {
+    // 소셜 로그인 확인
+    if (socialName && post.guestName === decodeURIComponent(socialName)) {
+      isAuthorized = true
+    } 
+    // 일반 로그인 확인
+    else if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any
+        if (post.authorId === decoded.userId) isAuthorized = true
+      } catch (e) { /* 인증 실패 */ }
+    }
+    
+    // 회원글인데 본인이 아니면 즉시 차단
+    if (!isAuthorized) {
+      throw createError({ statusCode: 403, message: '본인만 삭제할 수 있는 게시글입니다.' })
+    }
   } 
-  // B. 일반 로그인 유저 본인 확인
-  else if (post.authorId && token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any
-      if (post.authorId === decoded.userId) isAuthorized = true
-    } catch (e) { /* 인증 실패 처리 */ }
-  } 
-  // C. 비회원 비밀번호 확인
-  else if (!post.authorId && body.password) {
-    if (post.password === body.password) isAuthorized = true
-  }
-
-  if (!isAuthorized) {
-    throw createError({ statusCode: 403, message: '삭제 권한이 없거나 비밀번호가 틀렸습니다.' })
-  }
   
-  if (socialName && post.guestName === decodeURIComponent(socialName)) {
-  // 본인 확인 완료
-} else {
-  // 내 글이 아니면 비밀번호를 묻지 않고 바로 차단
-  throw createError({ statusCode: 403, message: '본인만 삭제할 수 있는 게시글입니다.' })
-}
+  // B. 비회원(익명)이 쓴 글인 경우
+  else {
+    // 전달받은 비밀번호와 DB 비밀번호 비교
+    if (body.password && post.password === body.password) {
+      isAuthorized = true
+    } else {
+      throw createError({ statusCode: 403, message: '비밀번호가 틀렸습니다.' })
+    }
+  }
 
-  // 3. 삭제 실행
+  // 3. 최종 삭제 실행
   await prisma.post.delete({ where: { id } })
   
   return { success: true }
