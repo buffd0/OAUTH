@@ -1,14 +1,16 @@
 <script setup>
-// 쿠키 설정 시 path: '/'를 넣어야 메인과 상세 페이지 모두에서 이름을 읽을 수 있습니다.
+// path: '/' 설정은 아주 잘하셨습니다!
 const token = useCookie('auth_token', { path: '/' })
 const userName = useCookie('user_name', { path: '/' })
 
-const isLoggedIn = computed(() => !!token.value)
+// 수정: 토큰이 있거나, 소셜 로그인을 통해 userName이 있는 경우 모두 로그인으로 간주
+const isLoggedIn = computed(() => !!token.value || !!userName.value)
 
 const handleLogout = () => {
   token.value = null
   userName.value = null
   alert('로그아웃 되었습니다.')
+  // window.location.href를 써야 모든 상태가 초기화됩니다.
   window.location.href = '/'
 }
 </script>
@@ -24,7 +26,7 @@ const handleLogout = () => {
             <div class="flex items-center space-x-2">
               <span class="bg-indigo-600 px-2 py-1 rounded text-[10px] font-bold text-white uppercase tracking-wider">User</span>
               <span class="text-sm font-bold text-indigo-100">
-                {{ userName || '회원' }}님
+                {{ userName ? decodeURIComponent(userName) : '회원' }}님
               </span>
             </div>
             <button @click="handleLogout" class="bg-indigo-800 hover:bg-indigo-700 px-4 py-1.5 rounded-lg text-sm font-bold transition-all border border-indigo-700">

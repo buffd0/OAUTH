@@ -1,46 +1,40 @@
 <script setup>
 const route = useRoute()
 const router = useRouter()
-const token = useCookie('auth_token') 
+const token = useCookie('auth_token')
+const socialName = useCookie('user_name')
 
 // 게시글 데이터 가져오기
 const { data: post, pending } = await useFetch(`/api/posts/${route.params.id}`)
+
+// 1. 현재 로그인한 유저의 이름 (쿠키에서 가져옴)
+const currentUserName = computed(() => {
+  return socialName.value ? decodeURIComponent(socialName.value) : null
+})
+
+// 2. 내 게시글인지 확인하는 로직 (작성자 이름 대조)
+const isMyPost = computed(() => {
+  if (!post.value) return false
+  
+  // 게시글에 표시된 작성자 이름과 현재 로그인한 이름이 같으면 본인 글임
+  const postAuthor = post.value.author?.name || post.value.guestName
+  return currentUserName.value === postAuthor
+})
 
 const goBack = () => {
   router.push('/')
 }
 
-// 삭제 함수 (이름을 handleDelete로 통일)
 const handleDelete = async () => {
-  let inputPassword = null
-
-  // A. 비회원 글인 경우 (authorId가 없음)
-  if (!post.value.authorId) {
-    inputPassword = prompt('이 게시글의 비밀번호를 입력해주세요.')
-    if (inputPassword === null) return // 취소 누르면 중단
-    if (!inputPassword) {
-      alert('비밀번호를 입력해야 합니다.')
-      return
-    }
-  } 
-  // B. 회원 글인 경우
-  else {
-    if (!token.value) {
-      alert('본인의 글만 삭제할 수 있습니다. 먼저 로그인하세요.')
-      return
-    }
-  }
-
   if (confirm('정말로 삭제하시겠습니까?')) {
     try {
       await $fetch(`/api/posts/${route.params.id}`, {
-        method: 'DELETE',
-        body: { password: inputPassword }
+        method: 'DELETE'
       })
       alert('삭제되었습니다.')
       router.push('/')
     } catch (e) {
-      alert(e.data?.message || '권한이 없거나 비밀번호가 틀렸습니다.')
+      alert(e.data?.message || '삭제 권한이 없습니다.')
     }
   }
 }
@@ -48,11 +42,6 @@ const handleDelete = async () => {
 
 <template>
   <div class="max-w-4xl mx-auto p-6 mt-10">
-    <div class="mb-6">
-      <button @click="goBack" class="flex items-center text-indigo-600 hover:text-indigo-800 font-bold">
-        <span class="mr-2 text-xl">←</span> 목록으로 돌아가기
-      </button>
-    </div>
 
     <div v-if="pending" class="text-center py-20">데이터를 불러오는 중입니다...</div>
     
@@ -82,7 +71,7 @@ const handleDelete = async () => {
           목록보기
         </button>
         
-        <div class="space-x-2">
+        <div v-if="isMyPost" class="space-x-2">
           <button @click="router.push(`/posts/edit/${post.id}`)" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 font-bold">
             수정
           </button>
