@@ -1,4 +1,5 @@
 // prisma/schema.prisma
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -10,25 +11,28 @@ generator client {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
-  posts     Post[]
-  createdAt DateTime @default(now())
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  name     String?
+  password String?
+
+  // [추가] 이 사용자가 작성한 게시글들과의 관계 (역관계)
+  posts Post[]
 }
 
 model Post {
-  id         Int      @id @default(autoincrement())
-  title      String
-  content    String
-  category   String   @default("자유게시판")
-  views      Int      @default(0)
-  // 회원 작성자 (선택 사항으로 변경 ?)
-  author     User?    @relation(fields: [authorId], references: [id])
-  authorId   Int?
+  id       Int    @id @default(autoincrement())
+  title    String
+  content  String
+  category String @default("자유게시판")
+  views    Int    @default(0)
+
+  // 회원 작성자 설정
+  author   User? @relation(fields: [authorId], references: [id])
+  authorId Int?
+
   // 비회원 작성자 정보
-  guestName  String?  // 비회원 닉네임
-  password   String?  // 수정/삭제용 비밀번호 (해싱 권장)
-  createdAt  DateTime @default(now())
+  guestName String?
+  password  String?
+  createdAt DateTime @default(now())
 }
